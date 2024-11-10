@@ -20,6 +20,10 @@ if stock_file and income_file:
     stock_data = pd.read_csv(stock_file, parse_dates=['Date'])
     income_data = pd.read_csv(income_file, parse_dates=['Date'])
     
+    # Ensure 'Date' columns are in datetime format
+    stock_data['Date'] = pd.to_datetime(stock_data['Date'], errors='coerce')
+    income_data['Date'] = pd.to_datetime(income_data['Date'], errors='coerce')
+
     # Display raw data preview
     st.write("### Stock Price Data")
     st.dataframe(stock_data.head())
