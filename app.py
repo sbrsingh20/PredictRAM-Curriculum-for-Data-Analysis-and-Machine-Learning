@@ -62,15 +62,21 @@ if stock_file and income_file:
     st.pyplot(fig)
 
     # Module 2: Regression Analysis
-    st.header("Module 2: Regression Analysis")
-    target_variable = st.selectbox("Select Target Variable for Stock Price Prediction", 
-                                   options=filtered_stock_data.columns)
-    feature_variable = st.selectbox("Select Feature Variable for Regression Analysis",
-                                    options=[col for col in filtered_income_data.columns if col != 'Date'])
+st.header("Module 2: Regression Analysis")
+target_variable = st.selectbox("Select Target Variable for Stock Price Prediction", 
+                               options=filtered_stock_data.columns)
+feature_variable = st.selectbox("Select Feature Variable for Regression Analysis",
+                                options=[col for col in filtered_income_data.columns if col != 'Date'])
     
-    if target_variable and feature_variable:
-        X = merged_data[[feature_variable]]
-        y = merged_data[target_variable]
+if target_variable and feature_variable:
+    # Ensure merged_data has no NaN values in the selected columns
+    merged_data_clean = merged_data.dropna(subset=[feature_variable, target_variable])
+    
+    if len(merged_data_clean) < 2:  # Check if there is enough data
+        st.warning("Not enough data available for regression. Please select a valid time range or metrics.")
+    else:
+        X = merged_data_clean[[feature_variable]]
+        y = merged_data_clean[target_variable]
         
         # Train-test split
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -97,6 +103,7 @@ if stock_file and income_file:
         ax.set_ylabel("Predicted Values")
         ax.set_title(f"{target_variable} Prediction vs Actual")
         st.pyplot(fig)
+
 
     # Module 3: Trend Analysis
     st.header("Module 3: Trend Analysis for Different Time Periods")
