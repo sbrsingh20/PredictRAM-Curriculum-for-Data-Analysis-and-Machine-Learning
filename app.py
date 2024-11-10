@@ -62,7 +62,7 @@ elif selected_section == "Data Visualization":
         
         # Plot data
         if st.button("Plot Data"):
-            st.line_chart(data[[x_column, y_column]])
+            st.line_chart(data.set_index(x_column)[y_column])
         
         # Example code snippet
         st.code("""
@@ -87,7 +87,7 @@ elif selected_section == "Basic Linear Regression":
         target_column = st.selectbox("Choose Target Column", data.columns)
         feature_columns = st.multiselect("Choose Feature Columns", [col for col in data.columns if col != target_column])
         
-        if st.button("Train Linear Regression Model"):
+        if st.button("Train Linear Regression Model") and feature_columns:
             X = data[feature_columns]
             y = data[target_column]
             model = LinearRegression()
@@ -125,13 +125,13 @@ elif selected_section == "Advanced Model Training":
         # Select model type
         model_type = st.selectbox("Select Model Type", ["Decision Tree", "Random Forest"])
         
-        if st.button("Train Model"):
+        if st.button("Train Model") and feature_columns:
             X = data[feature_columns]
             y = data[target_column]
             
             if model_type == "Decision Tree":
                 model = DecisionTreeRegressor()
-            # Add code for other model types if needed
+            # Code for other model types if needed
             
             model.fit(X, y)
             predictions = model.predict(X)
