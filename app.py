@@ -2,114 +2,85 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-st.title("Stock Price and Income Statement Analysis")
+# Load data
+income_df = pd.read_csv("incomestatement.csv")
+stock_df = pd.read_csv("stockdata.csv")
 
-# File upload
-st.sidebar.header("Upload Files")
-income_file = st.sidebar.file_uploader("Upload Income Statement CSV", type="csv")
-stock_file = st.sidebar.file_uploader("Upload Stock Price Data CSV", type="csv")
+# Parse date columns and set them as index
+income_df['Date'] = pd.to_datetime(income_df['Date'], format='%b-%y', errors='coerce')
+income_df.set_index('Date', inplace=True)
 
-if income_file and stock_file:
-    # Load the files
-    income_df = pd.read_csv(income_file)
-    stock_df = pd.read_csv(stock_file)
+stock_df['Date'] = pd.to_datetime(stock_df['Date'], errors='coerce')
+stock_df.set_index('Date', inplace=True)
 
-    # Display data for initial overview
-    st.write("### Income Statement Data")
-    st.write(income_df.head())
-    st.write("### Stock Price Data")
-    st.write(stock_df.head())
+# Sidebar - Column selection and Date Range selection
+st.sidebar.header("Options")
+income_column = st.sidebar.selectbox("Select Income Statement Column", income_df.columns)
+stock_column = st.sidebar.selectbox("Select Stock Data Column", stock_df.columns)
 
-    # Convert date columns to datetime format
-    income_df['Date'] = pd.to_datetime(income_df['Date'], format='%b-%y')
-    stock_df['Date'] = pd.to_datetime(stock_df['Date'], errors='coerce')
+# Display date range of data available
+st.write("Income Data Date Range:", income_df.index.min(), "to", income_df.index.max())
+st.write("Stock Data Date Range:", stock_df.index.min(), "to", stock_df.index.max())
 
-    # Select columns for analysis
-    income_column = st.sidebar.selectbox("Select Income Statement Column", income_df.columns[1:])
-    stock_column = st.sidebar.selectbox("Select Stock Data Column", stock_df.columns[1:])
+# Select start and end dates
+start_date = st.sidebar.date_input("Start Date", value=income_df.index.min())
+end_date = st.sidebar.date_input("End Date", value=income_df.index.max())
 
-    # Convert stock data to quarterly frequency to match income data
-    stock_df.set_index('Date', inplace=True)
-    stock_df = stock_df.resample('Q').mean()
-    income_df.set_index('Date', inplace=True)
+# Filter data based on selected date range
+income_df_filtered = income_df.loc[start_date:end_date, [income_column]]
+stock_df_filtered = stock_df.loc[start_date:end_date, [stock_column]]
 
-    # Date selection widgets
-    st.sidebar.header("Select Date Range for Analysis")
-    min_date = max(income_df.index.min(), stock_df.index.min())
-    max_date = min(income_df.index.max(), stock_df.index.max())
-    start_date = st.sidebar.date_input("Start Date", min_date)
-    end_date = st.sidebar.date_input("End Date", max_date)
+# Display filtered data before merging
+st.write("Filtered Income Data", income_df_filtered.head())
+st.write("Filtered Stock Data", stock_df_filtered.head())
 
-    # Check if selected dates are valid
-    if start_date > end_date:
-        st.error("Start date must be before end date.")
-    else:
-        # Filter data by the selected date range
-        income_df_filtered = income_df.loc[start_date:end_date]
-        stock_df_filtered = stock_df.loc[start_date:end_date]
+# Merge filtered data
+merged_data = pd.merge(income_df_filtered, stock_df_filtered, left_index=True, right_index=True, how='inner')
+merged_data.columns = [income_column, stock_column]
 
-        # Merge filtered data
-        merged_data = pd.merge(income_df_filtered[[income_column]], stock_df_filtered[[stock_column]], 
-                               left_index=True, right_index=True, how='inner')
+# Drop NaN values
+merged_data = merged_data.dropna()
 
-        st.write("### Merged Data for Analysis")
-        st.write(merged_data)
-
-        # Check for NaN values and drop them if present
-        if merged_data.isnull().any().any():
-            st.warning("Merged data contains NaN values. Dropping NaNs for analysis.")
-            merged_data = merged_data.dropna()
-
-        # Check if data is available after filtering and NaN handling
-        if merged_data.empty:
-            st.error("No data available for analysis after merging and NaN handling. Please check the date range and data quality in your files.")
-        else:
-            # Display correlation analysis
-            correlation = merged_data.corr().iloc[0, 1]
-            st.write(f"### Correlation between {income_column} and {stock_column}: {correlation:.2f}")
-
-            # Plot trend
-            st.write("### Trend Analysis")
-            plt.figure(figsize=(10, 5))
-            plt.plot(merged_data.index, merged_data[income_column], label=income_column, color='blue')
-            plt.plot(merged_data.index, merged_data[stock_column], label=stock_column, color='red')
-            plt.legend()
-            plt.xlabel("Date")
-            plt.ylabel("Values")
-            plt.title("Trend Analysis of Selected Columns")
-            st.pyplot(plt)
-
-            # Regression Analysis
-            st.write("### Regression Analysis")
-            
-            # Prepare data for regression
-            X = merged_data[[income_column]].values.reshape(-1, 1)
-            y = merged_data[stock_column].values
-
-            model = LinearRegression()
-            try:
-                model.fit(X, y)
-                y_pred = model.predict(X)
-
-                # Display regression results
-                st.write(f"Regression Coefficient (Slope): {model.coef_[0]:.2f}")
-                st.write(f"Regression Intercept: {model.intercept_:.2f}")
-
-                # Plot regression results
-                plt.figure(figsize=(10, 5))
-                sns.scatterplot(x=merged_data[income_column], y=merged_data[stock_column], color='blue', label="Actual Data")
-                plt.plot(merged_data[income_column], y_pred, color='red', label="Regression Line")
-                plt.xlabel(income_column)
-                plt.ylabel(stock_column)
-                plt.title(f"Regression Analysis of {income_column} vs {stock_column}")
-                plt.legend()
-                st.pyplot(plt)
-                
-            except ValueError as e:
-                st.error(f"Regression model fitting failed: {e}")
-
+if merged_data.empty:
+    st.error("No data available for analysis after merging and NaN handling. Please check the date range and data quality in your files.")
 else:
-    st.warning("Please upload both the income statement and stock price data files.")
+    st.write("Merged Data", merged_data)
+
+    # Plot trend for each selected column
+    st.write(f"Trend for {income_column} and {stock_column}")
+    fig, ax = plt.subplots()
+    ax.plot(merged_data.index, merged_data[income_column], label=income_column, color='blue')
+    ax.set_ylabel(income_column, color='blue')
+    ax2 = ax.twinx()
+    ax2.plot(merged_data.index, merged_data[stock_column], label=stock_column, color='red')
+    ax2.set_ylabel(stock_column, color='red')
+    ax.legend(loc="upper left")
+    ax2.legend(loc="upper right")
+    st.pyplot(fig)
+
+    # Regression Analysis
+    st.write("### Regression Analysis")
+    X = merged_data[[income_column]].values
+    y = merged_data[stock_column].values
+
+    model = LinearRegression()
+    model.fit(X, y)
+    y_pred = model.predict(X)
+
+    # Display regression results
+    st.write(f"Intercept: {model.intercept_}")
+    st.write(f"Coefficient: {model.coef_[0]}")
+    st.write(f"Mean Squared Error: {mean_squared_error(y, y_pred)}")
+    st.write(f"R^2 Score: {r2_score(y, y_pred)}")
+
+    # Plot regression
+    fig, ax = plt.subplots()
+    ax.scatter(X, y, color='blue', label="Actual Data")
+    ax.plot(X, y_pred, color='red', label="Regression Line")
+    ax.set_xlabel(income_column)
+    ax.set_ylabel(stock_column)
+    ax.legend()
+    st.pyplot(fig)
