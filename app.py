@@ -14,9 +14,9 @@ stock_file = st.sidebar.file_uploader("Upload Stock Price Data (CSV)", type="csv
 income_file = st.sidebar.file_uploader("Upload Income Statement Data (CSV)", type="csv")
 
 if stock_file and income_file:
-    # Load the stock and income statement datasets
-    stock_data = pd.read_csv(stock_file, parse_dates=['Date'])
-    income_data = pd.read_csv(income_file, parse_dates=['Date'])
+    # Load the stock and income statement datasets, ignoring unnamed columns
+    stock_data = pd.read_csv(stock_file, parse_dates=['Date']).dropna(axis=1, how="all")
+    income_data = pd.read_csv(income_file, parse_dates=['Date']).dropna(axis=1, how="all")
 
     # Convert dates in income data to datetime and resample stock data to quarterly frequency
     income_data['Date'] = pd.to_datetime(income_data['Date'], format='%b-%y')
