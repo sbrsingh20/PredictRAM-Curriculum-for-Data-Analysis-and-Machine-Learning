@@ -1,87 +1,90 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Streamlit App Title
 st.title("Stock Price and Income Statement Analysis")
-st.sidebar.header("Upload Data Files")
 
-# File Uploads
-stock_file = st.sidebar.file_uploader("Upload Stock Price Data (CSV)", type="csv")
-income_file = st.sidebar.file_uploader("Upload Income Statement Data (CSV)", type="csv")
+# File upload
+st.sidebar.header("Upload Files")
+income_file = st.sidebar.file_uploader("Upload Income Statement CSV", type="csv")
+stock_file = st.sidebar.file_uploader("Upload Stock Price Data CSV", type="csv")
 
-if stock_file and income_file:
-    # Load the stock and income statement datasets, ignoring unnamed columns
-    stock_data = pd.read_csv(stock_file, parse_dates=['Date']).dropna(axis=1, how="all")
-    income_data = pd.read_csv(income_file, parse_dates=['Date']).dropna(axis=1, how="all")
+if income_file and stock_file:
+    # Load the files
+    income_df = pd.read_csv(income_file)
+    stock_df = pd.read_csv(stock_file)
 
-    # Convert dates in income data to datetime and resample stock data to quarterly frequency
-    income_data['Date'] = pd.to_datetime(income_data['Date'], format='%b-%y')
-    stock_data['Date'] = pd.to_datetime(stock_data['Date'])
-    stock_data = stock_data.set_index('Date').resample('Q').last().reset_index()
+    # Data overview
+    st.write("### Income Statement Data")
+    st.write(income_df.head())
 
-    # Display data previews
-    st.write("### Stock Price Data Preview")
-    st.dataframe(stock_data.head())
-    st.write("### Income Statement Data Preview")
-    st.dataframe(income_data.head())
+    st.write("### Stock Price Data")
+    st.write(stock_df.head())
 
-    # Column selection
-    st.sidebar.subheader("Select Columns for Analysis")
-    stock_column = st.sidebar.selectbox("Choose Stock Data Column", options=stock_data.columns.drop('Date'))
-    income_column = st.sidebar.selectbox("Choose Income Statement Column", options=income_data.columns.drop('Date'))
+    # Convert date columns to datetime format
+    income_df['Date'] = pd.to_datetime(income_df['Date'], format='%b-%y')
+    stock_df['Date'] = pd.to_datetime(stock_df['Date'], errors='coerce')
 
-    # Merge datasets on Date
-    merged_data = pd.merge(stock_data[['Date', stock_column]], income_data[['Date', income_column]], on='Date', how='inner')
-    st.write("### Merged Data")
-    st.dataframe(merged_data.head())
+    # User selects columns for analysis
+    income_column = st.sidebar.selectbox("Select Income Statement Column", income_df.columns[1:])
+    stock_column = st.sidebar.selectbox("Select Stock Data Column", stock_df.columns[1:])
 
-    # Module 1: Trend Analysis
-    st.header("Trend Analysis")
-    st.write(f"### Trend Chart for {stock_column} and {income_column}")
-    fig, ax = plt.subplots()
-    ax.plot(merged_data['Date'], merged_data[stock_column], label=stock_column, color='blue')
-    ax.set_ylabel(stock_column, color='blue')
-    ax.tick_params(axis='y', labelcolor='blue')
-    ax2 = ax.twinx()
-    ax2.plot(merged_data['Date'], merged_data[income_column], label=income_column, color='green')
-    ax2.set_ylabel(income_column, color='green')
-    ax2.tick_params(axis='y', labelcolor='green')
-    st.pyplot(fig)
+    # Resampling stock data to quarterly frequency to match income statement
+    stock_df.set_index('Date', inplace=True)
+    stock_df = stock_df.resample('Q').mean()
+    income_df.set_index('Date', inplace=True)
 
-    # Module 2: Correlation Analysis
-    st.header("Correlation Analysis")
-    correlation = merged_data[stock_column].corr(merged_data[income_column])
-    st.write(f"Correlation between {stock_column} and {income_column}: {correlation:.4f}")
+    # Merging data on date to align for analysis
+    merged_data = pd.merge(income_df[[income_column]], stock_df[[stock_column]], left_index=True, right_index=True, how='inner')
 
-    # Module 3: Regression Analysis
-    st.header("Regression Analysis")
+    st.write("### Merged Data for Analysis")
+    st.write(merged_data)
+
+    # Check and handle NaN values
+    if merged_data.isnull().any().any():
+        st.warning("Merged data contains NaN values. Dropping NaNs for analysis.")
+        merged_data = merged_data.dropna()
+
+    # Display correlation analysis
+    correlation = merged_data.corr().iloc[0, 1]
+    st.write(f"### Correlation between {income_column} and {stock_column}: {correlation:.2f}")
+
+    # Plotting trend chart
+    st.write("### Trend Analysis")
+    plt.figure(figsize=(10, 5))
+    plt.plot(merged_data.index, merged_data[income_column], label=income_column, color='blue')
+    plt.plot(merged_data.index, merged_data[stock_column], label=stock_column, color='red')
+    plt.legend()
+    plt.xlabel("Date")
+    plt.ylabel("Values")
+    plt.title("Trend Analysis of Selected Columns")
+    st.pyplot(plt)
+
+    # Regression Analysis
+    st.write("### Regression Analysis")
     X = merged_data[[income_column]].values.reshape(-1, 1)
     y = merged_data[stock_column].values
 
-    # Train a linear regression model
     model = LinearRegression()
     model.fit(X, y)
     y_pred = model.predict(X)
 
-    # Display regression metrics
-    mse = mean_squared_error(y, y_pred)
-    r2 = r2_score(y, y_pred)
-    st.write(f"Mean Squared Error: {mse:.4f}")
-    st.write(f"R-Squared: {r2:.4f}")
+    # Display regression results
+    st.write(f"Regression Coefficient (Slope): {model.coef_[0]:.2f}")
+    st.write(f"Regression Intercept: {model.intercept_:.2f}")
 
-    # Plot actual vs predicted values
-    st.write("### Actual vs Predicted Values")
-    fig, ax = plt.subplots()
-    ax.scatter(y, y_pred, alpha=0.7, color='purple')
-    ax.plot(y, y, color='red')
-    ax.set_xlabel("Actual Values")
-    ax.set_ylabel("Predicted Values")
-    ax.set_title(f"{stock_column} Prediction vs Actual")
-    st.pyplot(fig)
+    # Plotting regression results
+    plt.figure(figsize=(10, 5))
+    sns.scatterplot(x=merged_data[income_column], y=merged_data[stock_column], color='blue', label="Actual Data")
+    plt.plot(merged_data[income_column], y_pred, color='red', label="Regression Line")
+    plt.xlabel(income_column)
+    plt.ylabel(stock_column)
+    plt.title(f"Regression Analysis of {income_column} vs {stock_column}")
+    plt.legend()
+    st.pyplot(plt)
 
 else:
-    st.write("Please upload both stock price and income statement CSV files to continue.")
+    st.warning("Please upload both the income statement and stock price data files.")
