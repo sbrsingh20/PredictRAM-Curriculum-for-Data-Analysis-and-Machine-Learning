@@ -16,7 +16,7 @@ if income_file is not None and stock_file is not None:
     stock_df = pd.read_csv(stock_file)
 
     # Parse date columns and set them as index
-    income_df['Date'] = pd.to_datetime(income_df['Date'], format='%b-%y', errors='coerce')
+    income_df['Date'] = pd.to_datetime(income_df['Date'], errors='coerce')
     income_df.set_index('Date', inplace=True)
 
     stock_df['Date'] = pd.to_datetime(stock_df['Date'], errors='coerce')
@@ -38,9 +38,16 @@ if income_file is not None and stock_file is not None:
     end_date = min(income_df.index.max(), stock_df.index.max())  # The latest date in both datasets
     start_date = end_date - pd.DateOffset(years=time_period)
 
+    # Debugging: Check if the date ranges are correct
+    st.write(f"Using date range from {start_date.date()} to {end_date.date()}")
+
     # Filter data based on the calculated date range
     income_df_filtered = income_df.loc[start_date:end_date, [income_column]]
     stock_df_filtered = stock_df.loc[start_date:end_date, [stock_column]]
+
+    # Debugging: Print the filtered data to check if they match the expected range
+    st.write("Filtered Income Data", income_df_filtered.head())
+    st.write("Filtered Stock Data", stock_df_filtered.head())
 
     # Check for empty filtered data
     if income_df_filtered.empty:
@@ -48,11 +55,8 @@ if income_file is not None and stock_file is not None:
     if stock_df_filtered.empty:
         st.error(f"No stock data available for the last {time_period} years.")
     
-    # Display filtered data before merging
+    # Proceed with merging and analysis if data is available
     if not income_df_filtered.empty and not stock_df_filtered.empty:
-        st.write("Filtered Income Data", income_df_filtered.head())
-        st.write("Filtered Stock Data", stock_df_filtered.head())
-
         # Merge filtered data
         merged_data = pd.merge(income_df_filtered, stock_df_filtered, left_index=True, right_index=True, how='inner')
         merged_data.columns = [income_column, stock_column]
