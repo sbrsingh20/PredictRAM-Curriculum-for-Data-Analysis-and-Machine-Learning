@@ -49,7 +49,7 @@ if income_file is not None and stock_file is not None:
     st.write("Filtered Income Data", income_df_filtered.head())
     st.write("Filtered Stock Data", stock_df_filtered.head())
 
-    # Check for empty filtered data
+    # Check if the date range is valid and data exists in both datasets
     if income_df_filtered.empty:
         st.error(f"No income statement data available for the last {time_period} years.")
     if stock_df_filtered.empty:
