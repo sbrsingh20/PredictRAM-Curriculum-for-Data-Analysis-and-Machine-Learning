@@ -39,56 +39,63 @@ if income_file is not None and stock_file is not None:
     income_df_filtered = income_df.loc[start_date:end_date, [income_column]]
     stock_df_filtered = stock_df.loc[start_date:end_date, [stock_column]]
 
+    # Check for empty filtered data
+    if income_df_filtered.empty:
+        st.error("No income statement data available for the selected date range.")
+    if stock_df_filtered.empty:
+        st.error("No stock data available for the selected date range.")
+    
     # Display filtered data before merging
-    st.write("Filtered Income Data", income_df_filtered.head())
-    st.write("Filtered Stock Data", stock_df_filtered.head())
+    if not income_df_filtered.empty and not stock_df_filtered.empty:
+        st.write("Filtered Income Data", income_df_filtered.head())
+        st.write("Filtered Stock Data", stock_df_filtered.head())
 
-    # Merge filtered data
-    merged_data = pd.merge(income_df_filtered, stock_df_filtered, left_index=True, right_index=True, how='inner')
-    merged_data.columns = [income_column, stock_column]
+        # Merge filtered data
+        merged_data = pd.merge(income_df_filtered, stock_df_filtered, left_index=True, right_index=True, how='inner')
+        merged_data.columns = [income_column, stock_column]
 
-    # Drop NaN values
-    merged_data = merged_data.dropna()
+        # Drop NaN values
+        merged_data = merged_data.dropna()
 
-    if merged_data.empty:
-        st.error("No data available for analysis after merging and NaN handling. Please check the date range and data quality in your files.")
-    else:
-        st.write("Merged Data", merged_data)
+        if merged_data.empty:
+            st.error("No data available for analysis after merging and NaN handling. Please check the date range and data quality in your files.")
+        else:
+            st.write("Merged Data", merged_data)
 
-        # Plot trend for each selected column
-        st.write(f"Trend for {income_column} and {stock_column}")
-        fig, ax = plt.subplots()
-        ax.plot(merged_data.index, merged_data[income_column], label=income_column, color='blue')
-        ax.set_ylabel(income_column, color='blue')
-        ax2 = ax.twinx()
-        ax2.plot(merged_data.index, merged_data[stock_column], label=stock_column, color='red')
-        ax2.set_ylabel(stock_column, color='red')
-        ax.legend(loc="upper left")
-        ax2.legend(loc="upper right")
-        st.pyplot(fig)
+            # Plot trend for each selected column
+            st.write(f"Trend for {income_column} and {stock_column}")
+            fig, ax = plt.subplots()
+            ax.plot(merged_data.index, merged_data[income_column], label=income_column, color='blue')
+            ax.set_ylabel(income_column, color='blue')
+            ax2 = ax.twinx()
+            ax2.plot(merged_data.index, merged_data[stock_column], label=stock_column, color='red')
+            ax2.set_ylabel(stock_column, color='red')
+            ax.legend(loc="upper left")
+            ax2.legend(loc="upper right")
+            st.pyplot(fig)
 
-        # Regression Analysis
-        st.write("### Regression Analysis")
-        X = merged_data[[income_column]].values
-        y = merged_data[stock_column].values
+            # Regression Analysis
+            st.write("### Regression Analysis")
+            X = merged_data[[income_column]].values
+            y = merged_data[stock_column].values
 
-        model = LinearRegression()
-        model.fit(X, y)
-        y_pred = model.predict(X)
+            model = LinearRegression()
+            model.fit(X, y)
+            y_pred = model.predict(X)
 
-        # Display regression results
-        st.write(f"Intercept: {model.intercept_}")
-        st.write(f"Coefficient: {model.coef_[0]}")
-        st.write(f"Mean Squared Error: {mean_squared_error(y, y_pred)}")
-        st.write(f"R^2 Score: {r2_score(y, y_pred)}")
+            # Display regression results
+            st.write(f"Intercept: {model.intercept_}")
+            st.write(f"Coefficient: {model.coef_[0]}")
+            st.write(f"Mean Squared Error: {mean_squared_error(y, y_pred)}")
+            st.write(f"R^2 Score: {r2_score(y, y_pred)}")
 
-        # Plot regression
-        fig, ax = plt.subplots()
-        ax.scatter(X, y, color='blue', label="Actual Data")
-        ax.plot(X, y_pred, color='red', label="Regression Line")
-        ax.set_xlabel(income_column)
-        ax.set_ylabel(stock_column)
-        ax.legend()
-        st.pyplot(fig)
+            # Plot regression
+            fig, ax = plt.subplots()
+            ax.scatter(X, y, color='blue', label="Actual Data")
+            ax.plot(X, y_pred, color='red', label="Regression Line")
+            ax.set_xlabel(income_column)
+            ax.set_ylabel(stock_column)
+            ax.legend()
+            st.pyplot(fig)
 else:
     st.write("Please upload both Income Statement and Stock Data CSV files to proceed.")
