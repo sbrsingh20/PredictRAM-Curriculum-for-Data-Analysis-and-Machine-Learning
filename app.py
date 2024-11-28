@@ -22,7 +22,7 @@ if income_file is not None and stock_file is not None:
     stock_df['Date'] = pd.to_datetime(stock_df['Date'], errors='coerce')
     stock_df.set_index('Date', inplace=True)
 
-    # Sidebar - Column selection and Date Range selection
+    # Sidebar - Column selection and Time Period selection
     st.sidebar.header("Options")
     income_column = st.sidebar.selectbox("Select Income Statement Column", income_df.columns)
     stock_column = st.sidebar.selectbox("Select Stock Data Column", stock_df.columns)
@@ -31,19 +31,22 @@ if income_file is not None and stock_file is not None:
     st.write("Income Data Date Range:", income_df.index.min(), "to", income_df.index.max())
     st.write("Stock Data Date Range:", stock_df.index.min(), "to", stock_df.index.max())
 
-    # Select start and end dates
-    start_date = st.sidebar.date_input("Start Date", value=income_df.index.min())
-    end_date = st.sidebar.date_input("End Date", value=income_df.index.max())
+    # Time period selection (1 year, 2 years, 5 years)
+    time_period = st.sidebar.selectbox("Select Time Period", [1, 2, 5])
 
-    # Filter data based on selected date range
+    # Calculate the end date (most recent date available) and start date based on the selected time period
+    end_date = min(income_df.index.max(), stock_df.index.max())  # The latest date in both datasets
+    start_date = end_date - pd.DateOffset(years=time_period)
+
+    # Filter data based on the calculated date range
     income_df_filtered = income_df.loc[start_date:end_date, [income_column]]
     stock_df_filtered = stock_df.loc[start_date:end_date, [stock_column]]
 
     # Check for empty filtered data
     if income_df_filtered.empty:
-        st.error("No income statement data available for the selected date range.")
+        st.error(f"No income statement data available for the last {time_period} years.")
     if stock_df_filtered.empty:
-        st.error("No stock data available for the selected date range.")
+        st.error(f"No stock data available for the last {time_period} years.")
     
     # Display filtered data before merging
     if not income_df_filtered.empty and not stock_df_filtered.empty:
